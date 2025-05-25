@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vastu-backend
+  namespace: vastu-prod
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: vastu-backend
+  template:
+    metadata:
+      labels:
+        app: vastu-backend
+    spec:
+      containers:
+      - name: backend
+        image: ${ECR_REGISTRY}/vastu-backend:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "prod"
+        - name: JDBC_DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: vastu-secrets
+              key: database-url
+        - name: JDBC_DATABASE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: vastu-secrets
+              key: database-username
+        - name: JDBC_DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vastu-secrets
+              key: database-password
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "200m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        readinessProbe:
+          httpGet:
+            path: /api/actuator/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /api/actuator/health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vastu-backend
+  namespace: vastu-prod
+spec:
+  selector:
+    app: vastu-backend
+  ports:
+  - port: 8080
+    targetPort: 8080
+  type: ClusterIP 
